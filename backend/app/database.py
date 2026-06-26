@@ -12,7 +12,7 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 # 3. Create the SQLAlchemy "Engine" (The core connection)
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
-# 4. Create a Session factory (How we talk to the DB in our routes)
+# 4. Create a Session factory (How we talk to the DB in routes)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 5. Create the Base class (Our models will inherit from this)
