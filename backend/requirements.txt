@@ -1,0 +1,25 @@
+# --- Core Framework & Server ---
+fastapi
+uvicorn[standard]
+
+# --- Database & Migrations ---
+sqlalchemy
+alembic
+psycopg2-binary
+
+# --- Data Validation & Settings ---
+pydantic
+pydantic-settings
+itsdangerous
+
+# --- Environment Variables ---
+python-dotenv
+
+# --- Security & Authentication ---
+passlib==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]
+python-multipart
+
+# --- External API Requests ---
+httpx
