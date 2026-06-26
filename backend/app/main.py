@@ -4,12 +4,12 @@ from app.routers import auth, games, bets
 from app.models import User, Game, Bet
 from fastapi.middleware.cors import CORSMiddleware #for connecting frontend
 
-# This reads your models.py and creates the exact tables in pgAdmin!
+# This reads the models.py and creates the exact tables in pgAdmin!
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="BetBook API")
 
-# --- ADD THIS CORS CONFIGURATION ---
+# --- CORS CONFIGURATION ---
 origins = [
     "http://localhost:3000", # Standard React port
     "http://localhost:5173", # Vite React port
@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"], # Allows all headers
 )
 
-# Include our routers
+# routers
 app.include_router(auth.router)
 app.include_router(games.router)
 app.include_router(bets.router)
