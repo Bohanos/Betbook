@@ -12,6 +12,7 @@ pydantic
 pydantic-settings
 itsdangerous
 
+
 # --- Environment Variables ---
 python-dotenv
 
@@ -23,3 +24,4 @@ python-multipart
 
 # --- External API Requests ---
 httpx
+email-validator>=2.0.0
