@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Admin from './pages/Admin';
-import Auth from './pages/Auth';
+import Login from './pages/Login'; 
+import RequestReset from './pages/RequestReset'; 
+import ResetPassword from './pages/ResetPassword'; 
 import { AuthProvider } from './context/AuthContext';
 import Footer from './components/Footer';
 import Games from './pages/Games';
@@ -10,6 +12,7 @@ import Navbar from './components/Navbar';
 import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import Verify from './pages/Verify';
+import Register from './pages/Register';
 
 
 export default function App() {
@@ -22,20 +25,23 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/games" element={<Games />} />
-              <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/my-bookings" element={<MyBookings />} />
               <Route path="/admin" element={
-                <ProtectedRoute>
+                <ProtectedRoute adminOnly={true}>
                   <Admin />
                 </ProtectedRoute>
               } />
               <Route path="/verify" element={<Verify />} />
+              <Route path="/forgot-password" element={<RequestReset />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
             </Routes>
           </main>
           <Footer />
         </div>
-      </AuthProvider>  
+      </AuthProvider> 
     </Router>
   );
 }

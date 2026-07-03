@@ -4,7 +4,6 @@ import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function Navbar() {
-  // We destructure everything cleanly in one single line
   const { user, setUser, balance } = useContext(AuthContext);
 
   return (
@@ -15,23 +14,27 @@ export default function Navbar() {
         <Link to="/" className="hover:text-yellow-400">Live</Link>
         <Link to="/games" className="hover:text-yellow-400">Games</Link>
         <Link to="/my-bookings" className="hover:text-yellow-400">My Bets</Link>
-        <Link to="/admin" className="hover:text-yellow-400">Admin</Link>
+        {user && user.is_admin && (<Link to="/admin" className="hover:text-yellow-400">Admin</Link>)}
         
-        {/* Swaps out the Login button for a profile pill + logout when user exists */}
+        {/* User state handling */}
         {user ? (
           <div className="flex items-center space-x-4">
             <span className="text-sm bg-slate-800 px-3 py-1.5 rounded-full text-slate-300 border border-slate-700">
               👤 {user.email}
             </span>
             <button 
-              onClick={() => setUser(null)} // Wipes context state to log out instantly
+              onClick={() => setUser(null)}
               className="text-sm text-red-400 hover:text-red-500 hover:underline cursor-pointer"
             >
               Logout
             </button>
           </div>
         ) : (
-          <Link to="/auth" className="bg-yellow-500 px-4 py-2 rounded text-black font-bold hover:bg-yellow-600 transition-colors">
+          /* Updated Login link with better padding and hover state */
+          <Link 
+            to="/login" 
+            className="bg-yellow-500 px-6 py-2 rounded font-bold text-black hover:bg-yellow-600 transition-colors"
+          >
             Login
           </Link>
         )}

@@ -13,6 +13,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     balance: float
     created_at: datetime
+    is_admin: bool
 
     model_config = ConfigDict(from_attributes=True)
 

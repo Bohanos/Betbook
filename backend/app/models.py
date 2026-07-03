@@ -25,6 +25,7 @@ class User(Base):
     balance = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_verified = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
 
     # Relationships
     bets = relationship("Bet", back_populates="owner")

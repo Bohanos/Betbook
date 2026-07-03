@@ -1,13 +1,15 @@
-import asyncio
-import httpx # New library for API calls
+import httpx
 import os
+import jwt  
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from app.database import get_db
 from app.models import User
 from app.schemas import UserCreate
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -16,13 +18,43 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # --- 1. Token Generator & Config ---
 SECRET_KEY = "super_secret_betbook_key" 
+ALGORITHM = "HS256"
 serializer = URLSafeTimedSerializer(SECRET_KEY)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login") # Tells FastAPI where to find the login route
 
-# Replace with your actual Resend API Key
+# --- SECURITY DEPENDENCIES (ADDED) ---
 
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+    
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
-# --- HELPER: Email Sender via API (Reliable) ---
+def get_current_admin(current_user: User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="The user does not have enough privileges"
+        )
+    return current_user
+
+# --- CONFIG: API Key ---
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+
+# --- HELPER: Email Sender via API ---
 async def send_verification_email_task(email: str, token: str):
+    if not RESEND_API_KEY:
+        print("ERROR: RESEND_API_KEY not found in environment variables!")
+        return
+
     verification_link = f"http://localhost:5173/verify?token={token}"
     html_content = f"""
     <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -43,7 +75,7 @@ async def send_verification_email_task(email: str, token: str):
                     "Content-Type": "application/json"
                 },
                 json={
-                    "from": "onboarding@resend.dev", # Or your verified domain
+                    "from": "onboarding@resend.dev",
                     "to": email,
                     "subject": "BetBook - Verify Your Account",
                     "html": html_content
@@ -115,6 +147,43 @@ def login_user(user_data: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Invalid Credentials")
         
     if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Please verify your email address before logging in.")
+        raise HTTPException(status_code=403, detail="Please verify your email address.")
 
-    return {"message": "Login successful!", "user_id": user.id}
+    # Generate the JWT token that the frontend will use for future requests
+    access_token = jwt.encode({"sub": user.email}, SECRET_KEY, algorithm=ALGORITHM)
+
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "email": user.email, 
+            "balance": user.balance, 
+            "is_admin": getattr(user, 'is_admin', False)
+        }
+    }
+# --- THE FORGOT_PASSWORD ROUTE ---
+@router.post("/forgot-password")
+async def forgot_password(email: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    
+    # Generate a time-sensitive token specifically for password resetting
+    reset_token = serializer.dumps(email, salt="password-reset")
+    
+    # You will need to create a helper like send_verification_email_task
+    background_tasks.add_task(send_reset_email_task, email, reset_token)
+    return {"message": "If this email exists, a reset link has been sent."}
+
+# --- THE RESET_PASSWORD ROUTE ---
+@router.post("/reset-password")
+async def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+    try:
+        email = serializer.loads(token, salt="password-reset", max_age=900) # 15 mins
+    except:
+        raise HTTPException(status_code=400, detail="Invalid or expired token.")
+    
+    user = db.query(User).filter(User.email == email).first()
+    user.hashed_password = pwd_context.hash(new_password)
+    db.commit()
+    return {"message": "Password updated successfully."}
