@@ -1,14 +1,17 @@
 import httpx
 import os
+from dotenv import load_dotenv
 import jwt  
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import Body
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from app.database import get_db
 from app.models import User
 from app.schemas import UserCreate
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
+from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -16,14 +19,29 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # Setup password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# --- 1. Token Generator & Config ---
-SECRET_KEY = "super_secret_betbook_key" 
+# Load variables from .env
+load_dotenv()
+
+# Configuration
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
+
+
+# Check if secrets are loaded
+if not SECRET_KEY:
+    raise ValueError("No SECRET_KEY set in .env file!")
+
+# --- 1. Token Generator & Config --- 
 ALGORITHM = "HS256"
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login") # Tells FastAPI where to find the login route
 
-# --- SECURITY DEPENDENCIES (ADDED) ---
+# --- PASSWORD RESET SCHEMA ---
+class PasswordResetSchema(BaseModel):
+    token: str
+    new_password: str
 
+# --- SECURITY DEPENDENCIES (ADDED) ---
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -161,29 +179,60 @@ def login_user(user_data: UserCreate, db: Session = Depends(get_db)):
             "is_admin": getattr(user, 'is_admin', False)
         }
     }
+
+# --- HELPER: Reset Password Email Sender ---
+async def send_reset_email_task(email: str, token: str):
+    if not RESEND_API_KEY:
+        print("ERROR: RESEND_API_KEY not found!")
+        return
+
+    reset_link = f"http://localhost:5173/reset-password?token={token}"
+    html_content = f"""
+    <div style="font-family: sans-serif; padding: 20px;">
+        <h3>Reset your BetBook Password</h3>
+        <p>Click the link below to reset your password:</p>
+        <a href="{reset_link}">Reset Password</a>
+    </div>
+    """
+    
+    async with httpx.AsyncClient() as client:
+        # (Use the same logic as your send_verification_email_task here)
+        await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json={
+                "from": "onboarding@resend.dev",
+                "to": email,
+                "subject": "BetBook - Reset Your Password",
+                "html": html_content
+            }
+        )
+
 # --- THE FORGOT_PASSWORD ROUTE ---
 @router.post("/forgot-password")
-async def forgot_password(email: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def forgot_password(email: str = Body(..., embed=True), background_tasks: BackgroundTasks = BackgroundTasks(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        # We don't want to tell hackers if the email exists, so return success anyway
+        return {"message": "If this email exists, a reset link has been sent."}
     
-    # Generate a time-sensitive token specifically for password resetting
     reset_token = serializer.dumps(email, salt="password-reset")
-    
-    # You will need to create a helper like send_verification_email_task
     background_tasks.add_task(send_reset_email_task, email, reset_token)
     return {"message": "If this email exists, a reset link has been sent."}
 
 # --- THE RESET_PASSWORD ROUTE ---
 @router.post("/reset-password")
-async def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+async def reset_password(payload: PasswordResetSchema, db: Session = Depends(get_db)):
     try:
-        email = serializer.loads(token, salt="password-reset", max_age=900) # 15 mins
-    except:
+        # Load the email from the token
+        email = serializer.loads(payload.token, salt="password-reset", max_age=900)
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid or expired token.")
     
     user = db.query(User).filter(User.email == email).first()
-    user.hashed_password = pwd_context.hash(new_password)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    user.hashed_password = pwd_context.hash(payload.new_password)
     db.commit()
     return {"message": "Password updated successfully."}
