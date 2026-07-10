@@ -11,3 +11,10 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 def get_all_users(db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     # This endpoint is now 100% protected
     return db.query(User).all()
+
+@router.patch("/users/{user_id}/balance")
+def update_user_balance(user_id: int, new_balance: float, db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    user = db.query(User).filter(User.id == user_id).first()
+    user.balance = new_balance
+    db.commit()
+    return {"message": "Balance updated"}
