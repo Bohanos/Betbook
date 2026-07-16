@@ -3,6 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import StatsCards from '../components/StatsCards';
 import UserManagement from '../components/UserManagement';
 import AdminTable from '../components/AdminTable';
+import { API_URL } from '../api';
 
 export default function Admin() {
   const [view, setView] = useState("Dashboard");
@@ -17,7 +18,7 @@ export default function Admin() {
   // 1. Fetch Users from your FastAPI backend
   const fetchUsers = async () => {
     const token = localStorage.getItem("token");
-    const response = await fetch("http://localhost:8000/admin/users", {
+    const response = await fetch(`${API_URL}/admin/users`, {
       headers: { "Authorization": `Bearer ${token}` }
     });
     if (response.ok) {
@@ -36,11 +37,33 @@ export default function Admin() {
     if (isNaN(amount)) return;
 
     const token = localStorage.getItem("token");
-    await fetch(`http://localhost:8000/admin/users/${userId}/balance?new_balance=${amount}`, {
-      method: "PATCH",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    fetchUsers(); // Refresh the list
+
+    try {
+      const response = await fetch(`${API_URL}/admin/users/${userId}/balance?new_balance=${amount}`, {
+        method: "PATCH",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json" // Good practice
+        }
+      });
+
+      if (response.ok) {
+        // 1. Instant UI update
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userId ? { ...user, balance: amount } : user
+          )
+        );
+        
+        // 2. Optional: Fetch in the background just to be 100% sure the DB matches the UI
+        // We don't 'await' this so it doesn't slow down the user experience
+        fetchUsers(); 
+      } else {
+        alert("Failed to update balance.");
+      }
+    } catch (error) {
+      console.error("Error updating balance:", error);
+    }
   };
 
   // 3. Handle Ban (Placeholder for now)

@@ -66,14 +66,14 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
 
 # --- CONFIG: API Key ---
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 # --- HELPER: Email Sender via API ---
 async def send_verification_email_task(email: str, token: str):
     if not RESEND_API_KEY:
         print("ERROR: RESEND_API_KEY not found in environment variables!")
         return
 
-    verification_link = f"http://localhost:5173/verify?token={token}"
+    verification_link = f"{FRONTEND_URL}/verify?token={token}"
     html_content = f"""
     <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h3 style="color: #1e293b;">Welcome to BetBook! 🚀</h3>
@@ -106,7 +106,7 @@ async def send_verification_email_task(email: str, token: str):
 
 # --- ROUTE 1: REGISTER (Smart Version) ---
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks = BackgroundTasks, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     
     # CASE 1: User exists and is already verified
@@ -124,7 +124,7 @@ async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks
     new_user = User(
         email=user_data.email, 
         hashed_password=hashed_password, 
-        balance=100.0,
+        balance=0,
         is_verified=False
     )
     
@@ -186,7 +186,7 @@ async def send_reset_email_task(email: str, token: str):
         print("ERROR: RESEND_API_KEY not found!")
         return
 
-    reset_link = f"http://localhost:5173/reset-password?token={token}"
+    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
     html_content = f"""
     <div style="font-family: sans-serif; padding: 20px;">
         <h3>Reset your BetBook Password</h3>
@@ -210,7 +210,7 @@ async def send_reset_email_task(email: str, token: str):
 
 # --- THE FORGOT_PASSWORD ROUTE ---
 @router.post("/forgot-password")
-async def forgot_password(email: str = Body(..., embed=True), background_tasks: BackgroundTasks = BackgroundTasks(), db: Session = Depends(get_db)):
+async def forgot_password(email: str = Body(..., embed=True), background_tasks: BackgroundTasks = BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         # We don't want to tell hackers if the email exists, so return success anyway

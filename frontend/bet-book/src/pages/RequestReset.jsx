@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_URL } from '../api';
 
 export default function RequestReset() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ export default function RequestReset() {
     setMessage(''); 
 
     try {
-      const response = await fetch(`http://localhost:8000/auth/forgot-password`, {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }) 

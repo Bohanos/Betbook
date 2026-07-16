@@ -16,7 +16,10 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="BetBook API")
 
 # --- CORS CONFIGURATION ---
-origins = ["http://localhost:5173",]
+origins = [
+    "http://localhost:5173",
+    "http://10.171.5.193:5173"
+]
 
 app.add_middleware(
     CORSMiddleware,

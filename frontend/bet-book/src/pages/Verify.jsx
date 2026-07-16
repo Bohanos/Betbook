@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { API_URL } from '../api';
 
 export default function Verify() {
   const [searchParams] = useSearchParams();
@@ -15,7 +16,7 @@ export default function Verify() {
       }
 
       try {
-        const response = await fetch(`http://localhost:8000/auth/verify?token=${token}`);
+        const response = await fetch(`${API_URL}/auth/verify?token=${token}`);
         const data = await response.json();
 
         if (response.ok) {

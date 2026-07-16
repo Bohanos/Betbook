@@ -42,3 +42,8 @@ class BetResponse(BaseModel):
     game_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- ADMIN DEPOSIT SCHEMAS ---
+class DepositSchema(BaseModel):
+    user_id: int
+    amount: int  # Amount in kobo/cents (e.g., 1000 = 10.00)

@@ -24,3 +24,4 @@ pyjwt
 # --- External API Requests ---
 httpx
 email-validator>=2.0.0
+
